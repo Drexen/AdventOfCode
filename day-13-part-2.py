@@ -37,13 +37,17 @@ class Pooter:
                 self.writeData(param_mode_data, 3, self.i + 3, output)
                 self.i += 4
             elif opcode == 3:
+
+                if len(self.parameters) <= self.param_idx:
+                    return "input"
+
                 self.writeData(param_mode_data, 1, self.i + 1, self.parameters[self.param_idx])
                 self.param_idx += 1
                 self.i += 2
             elif opcode == 4:
                 self.register = self.readData(param_mode_data, 1, self.i + 1)
                 self.i += 2
-                return False
+                return "output"
             elif opcode == 5:
                 var = self.readData(param_mode_data, 1, self.i + 1)
                 if var == 0:
@@ -74,9 +78,9 @@ class Pooter:
                 self.i += 2
             else:
                 print("Bad op code " + str(opcode))
-                return True
+                return "done"
 
-        return True
+        return "done"
 
 
     def readData(self, parameter_mode_data, param_num, i):
@@ -132,7 +136,7 @@ def solve():
 
     pygame.init()
 
-    size = width, height = board_w * spr_w, board_h * spr_w
+    size = board_w * spr_w, board_h * spr_w
     black = 0, 0, 0
 
     screen = pygame.display.set_mode(size)
@@ -149,8 +153,12 @@ def solve():
         4:(255, 255, 255)  # ball
     }
 
+    data[0] = 2
+
     running_game = True
-    time_last = time.time()
+    time_last = 0
+    score = 0
+    input = 0
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -158,12 +166,30 @@ def solve():
 
         if running_game is True:
             delta = (time.time() - time_last)
-            if delta > 1:
+            if delta > 0:
                 time_last = time.time()
+
+                if 3 in board and 4 in board:
+                    ball_pos_x = board.index(4) % board_w
+                    paddle_pos_x = board.index(3) % board_w
+                    target_paddle_x = ball_pos_x
+
+                    if target_paddle_x > paddle_pos_x:
+                        input = 1
+                    elif target_paddle_x < paddle_pos_x:
+                        input = -1
+                    else:
+                        input = 0
+
+                pooter.addParams(input)
+
                 while True:
                     result = pooter.executeProgram()
-                    if result is True:
+                    if result == "done":
                         running_game = False
+                        print("Final score = " + str(score))
+                        break
+                    elif result == "input":
                         break
 
                     x = pooter.register
@@ -172,11 +198,14 @@ def solve():
                     pooter.executeProgram()
                     c = pooter.register
 
-                    i = x + (y * board_w)
-                    if i < len(board):
-                        board[i] = c
+                    if x == -1 and y == 0:
+                        score = c
                     else:
-                        print("out of bounds - " + str(x) + " " + str(y))
+                        i = x + (y * board_w)
+                        if i < len(board):
+                            board[i] = c
+                        else:
+                            print("out of bounds - " + str(x) + " " + str(y))
 
         screen.fill(black)
 
@@ -187,8 +216,6 @@ def solve():
                 pygame.draw.rect(screen, colours[board[i]], pygame.rect.Rect(x * spr_w, y * spr_w, spr_w, spr_w))
 
         pygame.display.flip()
-
-
 
 
 def getData():
